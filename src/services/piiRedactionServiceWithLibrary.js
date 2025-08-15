@@ -6,12 +6,19 @@ class PiiRedactionServiceWithLibrary {
     this.customPatterns = {
       // Property management specific patterns
       propertyAddress: [
+        // Specific pattern for "23080 Alessandro Partners, LLC Moreno Valley, CA 92553"
         /\b\d+\s+[A-Za-z\s&]+(?:Partners|Partnership|LLC|LTD|INC|Corp|Corporation|Company|Co)[,\s]+[A-Za-z\s]+\s+[A-Za-z]{2}\s+\d{5}\b/gi,
+        // General address pattern
         /\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Place|Pl|Way|Terrace|Ter)\s+[A-Za-z\s]+\s+[A-Za-z]{2}\s+\d{5}\b/gi,
+        // Company address pattern (more flexible)
+        /\b\d+\s+[A-Za-z\s&]+(?:LLC|LTD|INC|Corp|Corporation|Company|Co)[,\s]+[A-Za-z\s]+\s+[A-Za-z]{2}\s+\d{5}\b/gi,
       ],
       propertyName: [
-        /\b[A-Za-z\s&]+(?:Properties|Property|INC|LLC|LTD|Corp|Corporation|Company|Co|Services|Service)\b/gi,
+        // More specific patterns to avoid false positives
+        /\b[A-Za-z\s&]+(?:Properties|Property|INC|LLC|LTD|Corp|Corporation|Company|Co)\b/gi,
         /\b[A-Za-z\s]+(?:Management|Mgmt)\s+(?:AND|&)\s+[A-Za-z\s]+\b/gi,
+        // Specific pattern for "JDW Management"
+        /\b[A-Za-z]{2,4}\s+(?:Management|Mgmt)\b/gi,
       ],
       accountNumber: [
         /\b(?:Account|Acct|Acc|A\/C|A\/C No|Account Number|Account No|Acc No)\s*[:#]?\s*(\d{4,20})\b/gi,
@@ -35,8 +42,11 @@ class PiiRedactionServiceWithLibrary {
     let confidence = 0;
     let totalMatches = 0;
 
+    // First, handle false positives to prevent them from being redacted
+    redactedText = this.preventFalsePositives(redactedText);
+
     // Use compromise for natural language processing
-    const doc = nlp(text);
+    const doc = nlp(redactedText);
 
     // Redact emails using compromise
     try {
@@ -78,55 +88,8 @@ class PiiRedactionServiceWithLibrary {
       console.log("Phone detection error:", error.message);
     }
 
-    // Redact organizations using compromise
-    try {
-      const organizations = doc.organizations();
-      if (organizations && organizations.length > 0) {
-        organizations.forEach((org) => {
-          const orgText = org.text();
-          // Check if it's a property management organization
-          if (this.isPropertyManagementOrg(orgText)) {
-            redactedText = redactedText.replace(orgText, "[PROPERTY_NAME]");
-            redactedFields.push({
-              type: "propertyName",
-              original: orgText,
-              redacted: "[PROPERTY_NAME]",
-              confidence: 0.8,
-            });
-            totalMatches++;
-          }
-        });
-      }
-    } catch (error) {
-      console.log("Organization detection error:", error.message);
-    }
-
-    // Redact addresses using compromise
-    try {
-      const places = doc.places();
-      if (places && places.length > 0) {
-        places.forEach((place) => {
-          const placeText = place.text();
-          if (this.isPropertyAddress(placeText)) {
-            redactedText = redactedText.replace(
-              placeText,
-              "[PROPERTY_ADDRESS]"
-            );
-            redactedFields.push({
-              type: "propertyAddress",
-              original: placeText,
-              redacted: "[PROPERTY_ADDRESS]",
-              confidence: 0.85,
-            });
-            totalMatches++;
-          }
-        });
-      }
-    } catch (error) {
-      console.log("Place detection error:", error.message);
-    }
-
-    // Apply custom patterns for property management specific entities
+    // Apply custom patterns FIRST for property management specific entities
+    // This ensures our specific patterns take priority over compromise's general detection
     Object.entries(this.customPatterns).forEach(([piiType, patterns]) => {
       patterns.forEach((pattern) => {
         const matches = redactedText.match(pattern);
@@ -147,8 +110,63 @@ class PiiRedactionServiceWithLibrary {
       });
     });
 
-    // Handle false positives
-    redactedText = this.preventFalsePositives(redactedText);
+    // Then redact organizations using compromise (but only if not already redacted)
+    try {
+      const organizations = doc.organizations();
+      if (organizations && organizations.length > 0) {
+        organizations.forEach((org) => {
+          const orgText = org.text();
+          // Only redact if it's not already been redacted and is a property management org
+          if (
+            redactedText.includes(orgText) &&
+            this.isPropertyManagementOrg(orgText)
+          ) {
+            redactedText = redactedText.replace(orgText, "[PROPERTY_NAME]");
+            redactedFields.push({
+              type: "propertyName",
+              original: orgText,
+              redacted: "[PROPERTY_NAME]",
+              confidence: 0.8,
+            });
+            totalMatches++;
+          }
+        });
+      }
+    } catch (error) {
+      console.log("Organization detection error:", error.message);
+    }
+
+    // Finally redact addresses using compromise (but only if not already redacted)
+    try {
+      const places = doc.places();
+      if (places && places.length > 0) {
+        places.forEach((place) => {
+          const placeText = place.text();
+          // Only redact if it's not already been redacted and is a property address
+          if (
+            redactedText.includes(placeText) &&
+            this.isPropertyAddress(placeText)
+          ) {
+            redactedText = redactedText.replace(
+              placeText,
+              "[PROPERTY_ADDRESS]"
+            );
+            redactedFields.push({
+              type: "propertyAddress",
+              original: placeText,
+              redacted: "[PROPERTY_ADDRESS]",
+              confidence: 0.85,
+            });
+            totalMatches++;
+          }
+        });
+      }
+    } catch (error) {
+      console.log("Place detection error:", error.message);
+    }
+
+    // Restore placeholders
+    redactedText = this.restorePlaceholders(redactedText);
 
     // Calculate overall confidence
     if (redactedFields.length > 0) {
@@ -259,10 +277,29 @@ class PiiRedactionServiceWithLibrary {
         pattern: /\bMANAGEMENT INVOICE Service\b/gi,
         replacement: "MANAGEMENT_INVOICE_SERVICE_PLACEHOLDER",
       },
+      {
+        pattern: /\bPROPERTY MANAGEMENT AND INVESTMENT Invoice Date\b/gi,
+        replacement: "PROPERTY_MANAGEMENT_INVESTMENT_INVOICE_DATE_PLACEHOLDER",
+      },
     ];
 
     falsePositivePatterns.forEach(({ pattern, replacement }) => {
       text = text.replace(pattern, replacement);
+    });
+
+    return text;
+  }
+
+  restorePlaceholders(text) {
+    // Restore placeholders back to original text
+    const placeholderMappings = {
+      MANAGEMENT_INVOICE_SERVICE_PLACEHOLDER: "MANAGEMENT INVOICE Service",
+      PROPERTY_MANAGEMENT_INVESTMENT_INVOICE_DATE_PLACEHOLDER:
+        "PROPERTY MANAGEMENT AND INVESTMENT Invoice Date",
+    };
+
+    Object.entries(placeholderMappings).forEach(([placeholder, original]) => {
+      text = text.replace(new RegExp(placeholder, "g"), original);
     });
 
     return text;

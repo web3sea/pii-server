@@ -6,12 +6,27 @@ const router = express.Router();
 // Text redaction endpoint
 router.post("/redact", async (req, res) => {
   try {
-    const { text } = req.body;
-
-    if (!text) {
+    // Validate request body
+    if (!req.body) {
       return res.status(400).json({
         error: "Bad Request",
-        message: "Text is required",
+        message: "Request body is required",
+      });
+    }
+
+    const { text } = req.body;
+
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Text field is required and must be a string",
+      });
+    }
+
+    if (text.trim().length === 0) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Text cannot be empty",
       });
     }
 
@@ -30,6 +45,15 @@ router.post("/redact", async (req, res) => {
     });
   } catch (error) {
     console.error("Text Redaction Error:", error);
+
+    // Handle specific error types
+    if (error.message.includes("Invalid text input")) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Invalid text input provided",
+      });
+    }
+
     res.status(500).json({
       error: "Internal Server Error",
       message: error.message,

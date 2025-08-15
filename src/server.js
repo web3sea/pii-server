@@ -13,7 +13,18 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
+app.use(
+  express.json({
+    limit: "50mb",
+    verify: (req, res, buf) => {
+      try {
+        JSON.parse(buf);
+      } catch (e) {
+        throw new Error("Invalid JSON");
+      }
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Routes
@@ -26,7 +37,21 @@ app.get("/health", (req, res) => {
     .json({ status: "OK", message: "PII Redaction API is running" });
 });
 
-// Error handling middleware
+// JSON parsing error handler
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    console.error("JSON Parse Error:", err.message);
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "Invalid JSON format in request body",
+      details:
+        "Please check your JSON syntax and ensure all quotes are properly escaped",
+    });
+  }
+  next(err);
+});
+
+// General error handling middleware
 app.use((err, req, res, next) => {
   console.error("Error:", err);
   res.status(500).json({

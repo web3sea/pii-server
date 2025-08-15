@@ -37,6 +37,27 @@ Redact PII from text input.
 }
 ```
 
+**Error Responses:**
+
+**Invalid JSON:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Invalid JSON format in request body",
+  "details": "Please check your JSON syntax and ensure all quotes are properly escaped"
+}
+```
+
+**Missing Text:**
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Text field is required and must be a string"
+}
+```
+
 **Response:**
 
 ```json
@@ -107,6 +128,30 @@ NODE_ENV=development
 - **helmet**: Security headers
 - **cors**: Cross-origin resource sharing
 - **dotenv**: Environment variable management
+
+## Troubleshooting
+
+### JSON Parsing Errors
+
+If you encounter JSON parsing errors, ensure:
+
+1. **Proper JSON Format**: All quotes are properly escaped
+2. **Content-Type Header**: Set to `application/json`
+3. **Valid JSON Structure**: Use proper JSON syntax
+
+**Example of correct request:**
+
+```bash
+curl -X POST http://localhost:3000/api/pii/redact \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Your text here"}'
+```
+
+### Common Issues
+
+- **Port Already in Use**: Change the PORT environment variable
+- **Memory Issues**: Ensure sufficient memory for large text processing
+- **Network Errors**: Check if the server is running and accessible
 
 ## License
 
