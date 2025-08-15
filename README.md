@@ -95,12 +95,35 @@ Health check endpoint.
 
 ## Supported PII Types
 
-- **Property Names**: Company names, management companies
-- **Property Addresses**: Street addresses, company addresses
-- **Phone Numbers**: Various phone number formats
+- **Property Names**: Company names, management companies, LLC/INC entities
+- **Property Addresses**: Street addresses, company addresses, full address blocks
+- **Phone Numbers**: Various phone number formats (800, 866, local numbers)
 - **Email Addresses**: Standard email format detection
 - **Account Numbers**: Financial account numbers
 - **Invoice Numbers**: Invoice and receipt numbers
+
+## Redaction Examples
+
+**Complex Address Redaction:**
+
+```
+Input: "23080 Alessandro Partners Llc, 23080 Alessandro Blvd, Moreno Valley CA 92553-9673"
+Output: "[PROPERTY_ADDRESS]"
+```
+
+**Company Name Redaction:**
+
+```
+Input: "ALESSANDRO PARTNERS LLC"
+Output: "[PROPERTY_NAME]"
+```
+
+**Phone Number Redaction:**
+
+```
+Input: "(800) 423-9986"
+Output: "[PHONE_NUMBER]"
+```
 
 ## Testing
 

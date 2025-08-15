@@ -6,7 +6,9 @@ class PiiRedactionServiceWithLibrary {
     this.customPatterns = {
       // Property management specific patterns
       propertyAddress: [
-        // Specific pattern for "23080 Alessandro Partners, LLC Moreno Valley, CA 92553"
+        // Specific pattern for "23080 Alessandro Partners Llc, 23080 Alessandro Blvd, Moreno Valley CA 92553-9673"
+        /\b\d+\s+[A-Za-z\s&]+(?:Partners|Partnership|LLC|LTD|INC|Corp|Corporation|Company|Co)[,\s]+\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Place|Pl|Way|Terrace|Ter)[,\s]+[A-Za-z\s]+\s+[A-Za-z]{2}\s+\d{5}(?:-\d{4})?\b/gi,
+        // Pattern for "23080 Alessandro Partners, LLC Moreno Valley, CA 92553"
         /\b\d+\s+[A-Za-z\s&]+(?:Partners|Partnership|LLC|LTD|INC|Corp|Corporation|Company|Co)[,\s]+[A-Za-z\s]+\s+[A-Za-z]{2}\s+\d{5}\b/gi,
         // General address pattern
         /\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Place|Pl|Way|Terrace|Ter)\s+[A-Za-z\s]+\s+[A-Za-z]{2}\s+\d{5}\b/gi,
@@ -15,10 +17,14 @@ class PiiRedactionServiceWithLibrary {
       ],
       propertyName: [
         // More specific patterns to avoid false positives
-        /\b[A-Za-z\s&]+(?:Properties|Property|INC|LLC|LTD|Corp|Corporation|Company|Co)\b/gi,
+        /\b[A-Za-z\s&]+(?:Properties|Property|LLC|LTD|Corp|Corporation|Company|Co)\b/gi,
         /\b[A-Za-z\s]+(?:Management|Mgmt)\s+(?:AND|&)\s+[A-Za-z\s]+\b/gi,
         // Specific pattern for "JDW Management"
         /\b[A-Za-z]{2,4}\s+(?:Management|Mgmt)\b/gi,
+        // Pattern for company names with LLC/INC at the end (but not standalone INC)
+        /\b[A-Za-z\s&]+(?:LLC|LTD|Corp|Corporation|Company|Co)\b/gi,
+        // Pattern for company names ending with INC (but not standalone)
+        /\b[A-Za-z\s&]+INC\b/gi,
       ],
       accountNumber: [
         /\b(?:Account|Acct|Acc|A\/C|A\/C No|Account Number|Account No|Acc No)\s*[:#]?\s*(\d{4,20})\b/gi,
@@ -281,6 +287,10 @@ class PiiRedactionServiceWithLibrary {
         pattern: /\bPROPERTY MANAGEMENT AND INVESTMENT Invoice Date\b/gi,
         replacement: "PROPERTY_MANAGEMENT_INVESTMENT_INVOICE_DATE_PLACEHOLDER",
       },
+      {
+        pattern: /\byou are authorizing the Company\b/gi,
+        replacement: "AUTHORIZATION_TEXT_PLACEHOLDER",
+      },
     ];
 
     falsePositivePatterns.forEach(({ pattern, replacement }) => {
@@ -293,9 +303,9 @@ class PiiRedactionServiceWithLibrary {
   restorePlaceholders(text) {
     // Restore placeholders back to original text
     const placeholderMappings = {
-      MANAGEMENT_INVOICE_SERVICE_PLACEHOLDER: "MANAGEMENT INVOICE Service",
       PROPERTY_MANAGEMENT_INVESTMENT_INVOICE_DATE_PLACEHOLDER:
         "PROPERTY MANAGEMENT AND INVESTMENT Invoice Date",
+      AUTHORIZATION_TEXT_PLACEHOLDER: "you are authorizing the Company",
     };
 
     Object.entries(placeholderMappings).forEach(([placeholder, original]) => {
