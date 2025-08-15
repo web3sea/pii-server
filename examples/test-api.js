@@ -4,7 +4,7 @@ const API_BASE_URL = "http://localhost:3000/api/pii";
 
 // Sample bill text with PII
 const sampleBillText =
-  "# 4000 HOWARDS JANITORIAL SERVICE\n\n261 W Wilson Street, Rialto Ca 92376 (909) 329-7358 howardp587@gmail.com\n\nINVOICE # 1025\n\n|  Bill to Julia & David Properties INC | Went to  |\n| --- | --- |\n|  Customer | Recipient  |\n|  Customer ID# | Address 564 W. Foothill Blvd Rialto Ca  |\n|  Address | Phone 92376  |\n|  Phone | 6571 478-9668  |\n|  Payment Bill |   |\n|  Payment Terms | Date of Service  |\n|  Payments | Service Person  |\n|  Payable To | Job Correction  |\n\n|  ITEM | QTY | DESCRIPTION | SQFT | UNIT PRICE | LINE TOTAL  |\n| --- | --- | --- | --- | --- | --- |\n|  1 | 1 | Pressure washing | Flat |  | 225.00  |\n|   |  | 411 Side walk Area |  |  |   |\n|  2 | 1 | Graffiti removal | Flat |  | 225.00  |\n|   |  | To Remove All |  |  |   |\n|   |  | Graffiti from |  |  |   |\n|   |  | Side walk & Buildings F. |  |  |   |\n|   |  | Hoor's To Complete |  |  |   |\n|   |  | Job 3.5-5.0 Hoor's |  |  |   |\n\nThank you for your business!";
+  "JDW Management PROPERTY MANAGEMENT AND INVESTMENT Invoice Date: 11/30/2024 23080 Alessandro Partners, LLC Moreno Valley, CA 92553 MANAGEMENT INVOICE Service Period: November 2024 Rental Income 69842.9 69842.9 X 0.04 = 2793.716 Total 2793.716 Thank you.";
 
 async function testTextRedaction() {
   try {
@@ -12,7 +12,7 @@ async function testTextRedaction() {
     console.log("Original text:");
     console.log(sampleBillText);
 
-    const response = await axios.post(`${API_BASE_URL}/redact-text`, {
+    const response = await axios.post(`${API_BASE_URL}/redact`, {
       text: sampleBillText,
     });
 
@@ -27,6 +27,7 @@ async function testTextRedaction() {
     });
 
     console.log(`\nOverall confidence: ${response.data.data.confidence}`);
+    console.log(`Total matches: ${response.data.data.totalMatches}`);
   } catch (error) {
     console.error(
       "Error testing text redaction:",
